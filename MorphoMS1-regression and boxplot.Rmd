@@ -1,0 +1,739 @@
+---
+title: "R Notebook-morphoMS"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+  word_document: default
+---
+
+
+try this  things again
+```{r load problematic packages}
+install.packages("devtools")
+install.packages("ggplot2")
+install.packages("ggpubr")
+install.packages("factoextra")
+install.packages("FactoMineR")
+install.packages("ade4")
+install.packages("vegan")
+install.packages("usethis")
+install.packages("ggsignif")
+install.packages("RColorBrewer")
+library(devtools)
+library(ggplot2)
+library(ggpubr)
+library(factoextra)
+library(FactoMineR)
+library(RColorBrewer)
+```
+
+
+```{r load dataset}
+allrhino58traits = read.csv(file = "rhinoall58traits.csv", header = T, sep = ",")
+allrhino58traits
+str(allrhino58traits)
+allrhino58traits$Id
+```
+
+subset
+
+```{r SUBSET DATA}
+#subset and do summary per species
+#affinis
+aff = subset(allrhino58traits, Species=="Rhinolophus_affinis")
+aff
+str(aff)
+sum.aff = summary(aff)
+sum.aff
+
+#luctus
+luc = subset(allrhino58traits, Species == "Rhinolophus_luctus")
+luc
+str(luc)
+sum.luc = summary(luc)
+sum.luc
+
+#malayanus
+mal = subset(allrhino58traits, Species == "Rhinolophus_malayanus")
+mal
+str(mal)
+sum.mal = summary(mal)
+sum.mal
+
+#marshalli
+mar = subset(allrhino58traits, Species == "Rhinolophus_marshalli")
+mar
+str(mar)
+sum.mar = summary(mar)
+sum.mar
+
+#paradoxolophus
+par = subset(allrhino58traits, Species == "Rhinolophus_paradoxolophus")
+par
+str(par)
+sum.par = summary(par)
+sum.par
+
+#pearsonii
+pea = subset(allrhino58traits, Species == "Rhinolophus_pearsonii")
+pea
+str(pea)
+sum.pea = summary(pea)
+sum.pea
+
+#pusillus
+pus = subset(allrhino58traits, Species == "Rhinolophus_pusillus")
+pus
+str(pus)
+sum.pus = summary(pus)
+sum.pus
+
+#macrotis
+mac = subset(allrhino58traits, Species == "Rhinolophus_siamensis")
+str(mac)
+sum.mac = summary(mac)
+sum.mac
+
+#sinicus
+sin = subset(allrhino58traits, Species == "Rhinolophus_sinicus")
+sin
+str(sin)
+sum.sin = summary(sin)
+sum.sin
+
+#stheno
+sth = subset(allrhino58traits, Species =="Rhinolophus_stheno")
+str(sth)
+sum.sth = summary(sth)
+sum.sth
+```
+
+look if FA correlate with fmax
+```{r aimple linear regression}
+library(car)
+
+#homogeneity
+leveneTest(FA ~ sp_id, data = allrhino58traits)
+# Compute the analysis of variance
+FA.aov <- aov(FA  ~ sp_id, data = allrhino58traits)
+# 2. Normality
+plot(FA.aov, 2) #qqplot
+plot(FA.aov, 1) #residual vs fitted plot
+# Summary of the analysis
+summary(FA.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(FA.aov)
+#Extract the residuals
+FA.aov_residuals <- residuals(object = FA.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = FA.aov_residuals)
+#do alternative non parametric kruskal wallis
+kruskal.test(FA~ sp_id, data = allrhino58traits)
+
+```
+
+do linear regression
+
+1. y is fmaxe (if calls are correlated with body size parameters)
+
+linear regression assumption
+Linear regression makes several assumptions about the data, such as :
+
+Linearity of the data. The relationship between the predictor (x) and the outcome (y) is assumed to be linear.
+Normality of residuals. The residual errors are assumed to be normally distributed.
+Homogeneity of residuals variance. The residuals are assumed to have a constant variance (homoscedasticity)
+Independence of residuals error terms.
+You should check whether or not these assumptions hold true. Potential problems include:
+
+Non-linearity of the outcome - predictor relationships
+Heteroscedasticity: Non-constant variance of error terms.
+Presence of influential values in the data that can be:
+Outliers: extreme values in the outcome (y) variable
+High-leverage points: extreme values in the predictors (x) variable
+All these assumptions and potential problems can be checked by producing some diagnostic plots visualizing the residual errors.
+
+```{r regression AND LINEAR MODEL}
+
+#look at the relationship between fa and fmaxe
+library(tidyverse)
+library(ggpubr)
+#first, plot data against predictor (FmaxE), we assume body size related to fmaxe
+ggplot(allrhino58traits, aes(x = NL.L , y = FmaxE)) + geom_point() +stat_smooth()
+#correlation coefficien
+cor(allrhino58traits$FmaxE, allrhino58traits$NL.L)
+#do linear model to determine a and b (linear regression, y = a+bx)
+NL.Lmodel = lm(FA ~ B, data = allrhino58traits)
+NL.Lmodel
+
+#add regression line in the scatter plot
+ggplot(allrhino58traits, aes(NL.L, FmaxE)) +
+  geom_point() +
+  stat_smooth(method = lm)
+ggsave("NL.LvsFmax.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+#do model summary
+summary(NL.Lmodel)
+
+#95% confidence interval
+confint(NL.Wmodel)
+
+#model accuracy
+sigma(NL.Wmodel)*100/mean(allrhino58traits$NL.W)
+
+
+#add to the formula and R to graph
+eq <- function(x,y) {
+  
+  model <- lm(FmaxE ~ INCW, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+
+ggplot(allrhino58traits,aes(x = INCW, y = FmaxE)) + 
+  geom_point() + 
+  geom_smooth(method = lm) +
+  geom_text(x = 7, y = 100, label = eq(allrhino58traits$INCW, allrhino58traits$FmaxE), parse = TRUE) 
+
+summary(model)
+ggsave("FmaxEVSINCW.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+#check the regression
+par(mfrow = c (2,2))
+plot(famodel)
+install.packages("ggfortify")
+library(ggfortify)
+autoplot(famodel)
+```
+
+#do multiple regression 
+
+```{r multiple regression}
+eq <- function(x,y) {
+  
+  multiplemodel <- lm(FmaxE ~ E*S.I, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(multiplemodel)
+equation1=function(x){coef(multiplemodel)[2]*x+coef(multiplemodel)[1]}
+equation2=function(x){coef(multiplemodel)[2]*x+coef(multiplemodel)[1]+coef(multiplemodel)[3]}
+
+ggplot(allrhino58traits,aes(y=FmaxE,x=E,color=S.I))+geom_point()+
+        stat_function(fun=equation1,geom="line",color=scales::hue_pal()(2)[1])+
+        stat_function(fun=equation2,geom="line",color=scales::hue_pal()(2)[2])
+
+summary(model)
+ggsave("FmaxEVSINCW.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot
+
+```{r tralala}
+
+pdf("macrotis CP.S.Ang.pdf")
+ggplot(mac, aes(x=sp_id, y=CP.S.Ang, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="blue", size=0.4, alpha=0.9) +
+  theme_classic()+
+  #theme_bw()+
+  #scale_fill_manual(values = mycolors) +
+  ggtitle("R. macrotis-CP.S.Ang") +
+  xlab("Species") + ylab("CP.S.Ang")
+dev.off()
+ggsave("macrotis CP.S.Ang.tiff", units="in", width=8, height=6, dpi=300, compression = 'lzw')
+```
+#continue boxplot
+```{r boxplot FA}
+#do boxplot for FA all species
+ggplot(allrhino58traits, aes(x=Species, y=FA, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("FA boxplot") +
+  xlab("Species") + ylab("FA")
+ggsave("FA.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+# Define the number of colors you want
+nb.cols <- 18
+mycolors <- colorRampPalette(brewer.pal(8, "Paired"))(nb.cols)
+# Create a ggplot with 18 colors 
+# Use scale_fill_manual
+#ggplot(df) + 
+  #geom_col(aes(name, Sepal.Length, fill = factor(Sepal.Length))) +
+  #scale_fill_manual(values = mycolors) +
+  #theme_minimal() +
+  #theme(legend.position = "top") #use this as reference in the future
+
+pdf("FAboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=FA, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("FA boxplot") +
+  xlab("Species") + ylab("FA")
+dev.off()
+ggsave("FA.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot for Ears
+```{r boxplot E}
+ggplot(allrhino58traits, aes(x=Species, y=E, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("E boxplot") +
+  xlab("Species") + ylab("E")
+ggsave("E.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("EarsBoxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=E, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("E boxplot") +
+  xlab("Species") + ylab("E")
+dev.off()
+ggsave("E.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR TAIL---
+
+```{r BOXPLOT FOR TAIL}
+ggplot(allrhino58traits, aes(x=Species, y=Tail, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("Tail boxplot") +
+  xlab("Species") + ylab("Tail")
+ggsave("Tail.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("tailboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=Tail, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("Tail boxplot") +
+  xlab("Species") + ylab("Tail")
+dev.off()
+ggsave("Tail.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#boxplot for FmaxE
+
+```{r BOXPLOT FOR FmaxE}
+#do boxplot for FmaxE all species
+ggplot(allrhino58traits, aes(x=Species, y=FmaxE, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("FmaxE boxplot") +
+  xlab("Species") + ylab("FmaxE")
+ggsave("FmaxE.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("FMAXEboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=FmaxE, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("FmaxE boxplot") +
+  xlab("Species") + ylab("FmaxE")
+dev.off()
+ggsave("FmaxE.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot for BW-BANDWIDTH
+```{r boxplot BW}
+ggplot(allrhino58traits, aes(x=Species, y=BW, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("BW boxplot") +
+  xlab("Species") + ylab("BW")
+ggsave("BW.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("BWboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=BW, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("BW boxplot") +
+  xlab("Species") + ylab("BW")
+dev.off()
+ggsave("BW.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#do boxplot for wing
+# boxplot wor wing span (B)
+```{r boxplot for wingspan b}
+ggplot(allrhino58traits, aes(x=Species, y=B, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("B boxplot") +
+  xlab("Species") + ylab("B")
+ggsave("B.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("wingspanB.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=B, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("B boxplot") +
+  xlab("Species") + ylab("B")
+dev.off()
+ggsave("B.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+```{r BOXPLOT FOR wing tip shape I}
+ggplot(allrhino58traits, aes(x=Species, y=I, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("I boxplot") +
+  xlab("Species") + ylab("I")
+ggsave("I.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=I, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("I boxplot") +
+  xlab("Species") + ylab("I")
+ggsave("I.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#do boxplot for ASPECT RATIO
+
+```{r boxplot for AR}
+
+ggplot(allrhino58traits, aes(x=Species, y=AR, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("AR boxplot") +
+  xlab("Species") + ylab("AR")
+ggsave("AR.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=AR, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("AR boxplot") +
+  xlab("Species") + ylab("AR")
+ggsave("AR.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#DO BOXPLOT FOR WINGLOADING
+
+```{r BOXPLOT WL}
+ggplot(allrhino58traits, aes(x=Species, y=WL, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("WL boxplot") +
+  xlab("Species") + ylab("WL")
+ggsave("WL.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=WL, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("WL boxplot") +
+  xlab("Species") + ylab("WL")
+ggsave("WL.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#DO BOXPLOT FOR BODY MASS
+
+```{r BOXPLOT FOR BODYMASS}
+ggplot(allrhino58traits, aes(x=Species, y=BM, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("BM boxplot") +
+  xlab("Species") + ylab("BM")
+ggsave("BM.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=BM, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("BM boxplot") +
+  xlab("Species") + ylab("BM")
+ggsave("BM.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+##DO BOXPLOT FOR NOSELEAF TRAITS
+
+```{r DO BOXPLOT FOR NLL}
+ggplot(allrhino58traits, aes(x=Species, y=NL.L, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("NLL boxplot") +
+  xlab("Species") + ylab("NLL")
+ggsave("NLL.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("NLLboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=NL.L, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("NLL boxplot") +
+  xlab("Species") + ylab("NLL")
+dev.off()
+ggsave("NLL.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#DO BOXPLOT FOR NLW
+
+```{r BOXPLOT NLW}
+ggplot(allrhino58traits, aes(x=Species, y=NL.W, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("NL.W boxplot") +
+  xlab("Species") + ylab("NL.W")
+ggsave("NL.W.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=NL.W, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("NL.W boxplot") +
+  xlab("Species") + ylab("NL.W")
+ggsave("NL.W.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#DO BOXPLOT FOR LH
+
+```{r BOXPLOT FOR LH}
+ggplot(allrhino58traits, aes(x=Species, y=LH, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("LH boxplot") +
+  xlab("Species") + ylab("LH")
+ggsave("LH.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=LH, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("LH boxplot") +
+  xlab("Species") + ylab("LH")
+ggsave("LH.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#DO BOXPLOT FOR LTH
+
+```{r BOXPLOT FOR LTH}
+ggplot(allrhino58traits, aes(x=Species, y=LTH, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("LTH boxplot") +
+  xlab("Species") + ylab("LTH")
+ggsave("LTH.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=LTH, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("LTH boxplot") +
+  xlab("Species") + ylab("LTH")
+ggsave("LTH.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR NOSELEAF AREA
+
+```{r BOXPLOT FOR NL.A}
+ggplot(allrhino58traits, aes(x=Species, y=NL.A, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("NL.A boxplot") +
+  xlab("Species") + ylab("NL.A")
+ggsave("NLA.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=NL.A, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("NL.A boxplot") +
+  xlab("Species") + ylab("NL.A")
+ggsave("NL.A.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#DO BOXPLOT FOR SELLA HEIGHT
+
+```{r BOXPLOT OF SELLA HEIGHT}
+ggplot(allrhino58traits, aes(x=Species, y=Sh, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("Sh boxplot") +
+  xlab("Species") + ylab("Sh")
+ggsave("Sh.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=Sh, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("Sh boxplot") +
+  xlab("Species") + ylab("Sh")
+ggsave("Sh.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#do boxplot for sella area
+
+```{r Box[;ot for sella area]}
+ggplot(allrhino58traits, aes(x=Species, y=SA, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("SA boxplot") +
+  xlab("Species") + ylab("SA")
+ggsave("SA.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=SA, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("SA boxplot") +
+  xlab("Species") + ylab("SA")
+ggsave("SA.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#DO BOXPLOT FOR ANGLE
+
+```{r BOXPLOT CPANG}
+ggplot(allrhino58traits, aes(x=Species, y=CP.Ang, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("CP.Ang boxplot") +
+  xlab("Species") + ylab("CP.Ang")
+ggsave("CP.Ang.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("CPAngleboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=CP.Ang, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("CP.Ang boxplot") +
+  xlab("Species") + ylab("CP.Ang")
+dev.off()
+ggsave("CP.Ang.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+#do boxplot for CP.S.ang
+
+```{r boxplot for CP.S.Ang}
+ggplot(allrhino58traits, aes(x=Species, y=CP.S.Ang, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("CP.S.Ang boxplot") +
+  xlab("Species") + ylab("CP.S.Ang")
+ggsave("CP.S.Ang.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=CP.S.Ang, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("CP.S.Ang boxplot") +
+  xlab("Species") + ylab("CP.S.Ang")
+ggsave("CP.S.Ang.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR S.ANG
+
+```{r BOXPLOT FOR S.ANG}
+ggplot(allrhino58traits, aes(x=Species, y=S.Ang, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("CP.Ang boxplot") +
+  xlab("Species") + ylab("S.Ang")
+ggsave("S.Ang.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=S.Ang, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("S.Ang boxplot") +
+  xlab("Species") + ylab("S.Ang")
+ggsave("S.Ang.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
