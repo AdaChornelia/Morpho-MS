@@ -1,0 +1,2851 @@
+---
+title: "R Notebook-morphoMS"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+  word_document: default
+---
+
+try this fucking things again
+```{r load problematic packages}
+install.packages("devtools")
+install.packages("ggplot2")
+install.packages("ggpubr")
+install.packages("factoextra")
+install.packages("FactoMineR")
+install.packages("ade4")
+install.packages("vegan")
+install.packages("usethis")
+install.packages("ggsignif")
+install.packages("RColorBrewer")
+library(devtools)
+library(ggplot2)
+library(ggpubr)
+library(factoextra)
+library(FactoMineR)
+library(RColorBrewer)
+```
+
+set working directory
+```{r set working directory}
+setwd("C:/Users/hp/OneDrive/2020 BACK UP PHD/1. IMPORTANT-CHAPTER2/R Notebook/Data_Analysis_part2/14062021_MorphoAcousticMS1")
+getwd()
+```
+
+
+```{r load dataset}
+allrhino58traits = read.csv(file = "rhinoall58traits.csv", header = T, sep = ",")
+allrhino58traits
+str(allrhino58traits)
+allrhino58traits$Id
+```
+
+subset
+
+```{r SUBSET DATA}
+#subset and do summary per species
+#affinis
+aff = subset(allrhino58traits, Species=="Rhinolophus_affinis")
+aff
+str(aff)
+sum.aff = summary(aff)
+sum.aff
+
+#luctus
+luc = subset(allrhino58traits, Species == "Rhinolophus_luctus")
+luc
+str(luc)
+sum.luc = summary(luc)
+sum.luc
+
+#malayanus
+mal = subset(allrhino58traits, Species == "Rhinolophus_malayanus")
+mal
+str(mal)
+sum.mal = summary(mal)
+sum.mal
+
+#marshalli
+mar = subset(allrhino58traits, Species == "Rhinolophus_marshalli")
+mar
+str(mar)
+sum.mar = summary(mar)
+sum.mar
+
+#paradoxolophus
+par = subset(allrhino58traits, Species == "Rhinolophus_paradoxolophus")
+par
+str(par)
+sum.par = summary(par)
+sum.par
+
+#pearsonii
+pea = subset(allrhino58traits, Species == "Rhinolophus_pearsonii")
+pea
+str(pea)
+sum.pea = summary(pea)
+sum.pea
+
+#pusillus
+pus = subset(allrhino58traits, Species == "Rhinolophus_pusillus")
+pus
+str(pus)
+sum.pus = summary(pus)
+sum.pus
+
+#macrotis
+mac = subset(allrhino58traits, Species == "Rhinolophus_siamensis")
+str(mac)
+sum.mac = summary(mac)
+sum.mac
+
+#sinicus
+sin = subset(allrhino58traits, Species == "Rhinolophus_sinicus")
+sin
+str(sin)
+sum.sin = summary(sin)
+sum.sin
+
+#stheno
+sth = subset(allrhino58traits, Species =="Rhinolophus_stheno")
+str(sth)
+sum.sth = summary(sth)
+sum.sth
+```
+
+look if FA correlate with fmax
+```{r aimple linear regression}
+library(car)
+
+#homogeneity
+leveneTest(FA ~ sp_id, data = allrhino58traits)
+# Compute the analysis of variance
+FA.aov <- aov(FA  ~ sp_id, data = allrhino58traits)
+# 2. Normality
+plot(FA.aov, 2) #qqplot
+plot(FA.aov, 1) #residual vs fitted plot
+# Summary of the analysis
+summary(FA.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(FA.aov)
+#Extract the residuals
+FA.aov_residuals <- residuals(object = FA.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = FA.aov_residuals)
+#do alternative non parametric kruskal wallis
+kruskal.test(FA~ sp_id, data = allrhino58traits)
+
+
+
+
+```
+
+do linear regression
+
+1. y is fmaxe (if calls are correlated with body size parameters)
+
+linear regression assumption
+Linear regression makes several assumptions about the data, such as :
+
+Linearity of the data. The relationship between the predictor (x) and the outcome (y) is assumed to be linear.
+Normality of residuals. The residual errors are assumed to be normally distributed.
+Homogeneity of residuals variance. The residuals are assumed to have a constant variance (homoscedasticity)
+Independence of residuals error terms.
+You should check whether or not these assumptions hold true. Potential problems include:
+
+Non-linearity of the outcome - predictor relationships
+Heteroscedasticity: Non-constant variance of error terms.
+Presence of influential values in the data that can be:
+Outliers: extreme values in the outcome (y) variable
+High-leverage points: extreme values in the predictors (x) variable
+All these assumptions and potential problems can be checked by producing some diagnostic plots visualizing the residual errors.
+
+```{r regression AND LINEAR MODEL}
+
+#look at the relationship between fa and fmaxe
+library(tidyverse)
+library(ggpubr)
+#first, plot data against predictor (FmaxE), we assume body size related to fmaxe
+ggplot(allrhino58traits, aes(x = NL.L , y = FmaxE)) + geom_point() +stat_smooth()
+#correlation coefficien
+cor(allrhino58traits$FmaxE, allrhino58traits$NL.L)
+#do linear model to determine a and b (linear regression, y = a+bx)
+NL.Lmodel = lm(FA ~ B, data = allrhino58traits)
+NL.Lmodel
+
+#add regression line in the scatter plot
+ggplot(allrhino58traits, aes(NL.L, FmaxE)) +
+  geom_point() +
+  stat_smooth(method = lm)
+ggsave("NL.LvsFmax.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+#do model summary
+summary(NL.Lmodel)
+
+#95% confidence interval
+confint(NL.Wmodel)
+
+#model accuracy
+sigma(NL.Wmodel)*100/mean(allrhino58traits$NL.W)
+
+
+#add to the formula and R to graph
+eq <- function(x,y) {
+  
+  model <- lm(FmaxE ~ INCW, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+
+ggplot(allrhino58traits,aes(x = INCW, y = FmaxE)) + 
+  geom_point() + 
+  geom_smooth(method = lm) +
+  geom_text(x = 7, y = 100, label = eq(allrhino58traits$INCW, allrhino58traits$FmaxE), parse = TRUE) 
+
+summary(model)
+ggsave("FmaxEVSINCW.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+#check the regression
+par(mfrow = c (2,2))
+plot(famodel)
+install.packages("ggfortify")
+library(ggfortify)
+autoplot(famodel)
+```
+
+
+#do multiple regression 
+
+```{r multiple regression}
+eq <- function(x,y) {
+  
+  multiplemodel <- lm(FmaxE ~ E*S.I, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(multiplemodel)
+equation1=function(x){coef(multiplemodel)[2]*x+coef(multiplemodel)[1]}
+equation2=function(x){coef(multiplemodel)[2]*x+coef(multiplemodel)[1]+coef(multiplemodel)[3]}
+
+ggplot(allrhino58traits,aes(y=FmaxE,x=E,color=S.I))+geom_point()+
+        stat_function(fun=equation1,geom="line",color=scales::hue_pal()(2)[1])+
+        stat_function(fun=equation2,geom="line",color=scales::hue_pal()(2)[2])
+
+summary(model)
+ggsave("FmaxEVSINCW.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot
+
+```{r tralala}
+
+pdf("macrotis CP.S.Ang.pdf")
+ggplot(mac, aes(x=sp_id, y=CP.S.Ang, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="blue", size=0.4, alpha=0.9) +
+  theme_classic()+
+  #theme_bw()+
+  #scale_fill_manual(values = mycolors) +
+  ggtitle("R. macrotis-CP.S.Ang") +
+  xlab("Species") + ylab("CP.S.Ang")
+dev.off()
+ggsave("macrotis CP.S.Ang.tiff", units="in", width=8, height=6, dpi=300, compression = 'lzw')
+```
+
+#continue boxplot
+```{r boxplot FA}
+#do boxplot for FA all species
+ggplot(allrhino58traits, aes(x=Species, y=FA, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("FA boxplot") +
+  xlab("Species") + ylab("FA")
+ggsave("FA.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+# Define the number of colors you want
+nb.cols <- 18
+mycolors <- colorRampPalette(brewer.pal(8, "Paired"))(nb.cols)
+# Create a ggplot with 18 colors 
+# Use scale_fill_manual
+#ggplot(df) + 
+  #geom_col(aes(name, Sepal.Length, fill = factor(Sepal.Length))) +
+  #scale_fill_manual(values = mycolors) +
+  #theme_minimal() +
+  #theme(legend.position = "top") #use this as reference in the future
+
+pdf("FAboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=FA, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("FA boxplot") +
+  xlab("Species") + ylab("FA")
+dev.off()
+ggsave("FA.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot for Ears
+```{r boxplot E}
+ggplot(allrhino58traits, aes(x=Species, y=E, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("E boxplot") +
+  xlab("Species") + ylab("E")
+ggsave("E.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("EarsBoxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=E, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("E boxplot") +
+  xlab("Species") + ylab("E")
+dev.off()
+ggsave("E.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR TAIL---
+
+```{r BOXPLOT FOR TAIL}
+ggplot(allrhino58traits, aes(x=Species, y=Tail, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("Tail boxplot") +
+  xlab("Species") + ylab("Tail")
+ggsave("Tail.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("tailboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=Tail, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("Tail boxplot") +
+  xlab("Species") + ylab("Tail")
+dev.off()
+ggsave("Tail.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+
+#boxplot for FmaxE
+
+```{r BOXPLOT FOR FmaxE}
+#do boxplot for FmaxE all species
+ggplot(allrhino58traits, aes(x=Species, y=FmaxE, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("FmaxE boxplot") +
+  xlab("Species") + ylab("FmaxE")
+ggsave("FmaxE.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("FMAXEboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=FmaxE, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("FmaxE boxplot") +
+  xlab("Species") + ylab("FmaxE")
+dev.off()
+ggsave("FmaxE.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot for BW-BANDWIDTH
+```{r boxplot BW}
+ggplot(allrhino58traits, aes(x=Species, y=BW, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("BW boxplot") +
+  xlab("Species") + ylab("BW")
+ggsave("BW.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("BWboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=BW, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("BW boxplot") +
+  xlab("Species") + ylab("BW")
+dev.off()
+ggsave("BW.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot for wing
+# boxplot wor wing span (B)
+```{r boxplot for wingspan b}
+ggplot(allrhino58traits, aes(x=Species, y=B, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("B boxplot") +
+  xlab("Species") + ylab("B")
+ggsave("B.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("wingspanB.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=B, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("B boxplot") +
+  xlab("Species") + ylab("B")
+dev.off()
+ggsave("B.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+
+
+```{r BOXPLOT FOR wing tip shape I}
+ggplot(allrhino58traits, aes(x=Species, y=I, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("I boxplot") +
+  xlab("Species") + ylab("I")
+ggsave("I.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=I, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("I boxplot") +
+  xlab("Species") + ylab("I")
+ggsave("I.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot for ASPECT RATIO
+
+```{r boxplot for AR}
+
+ggplot(allrhino58traits, aes(x=Species, y=AR, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("AR boxplot") +
+  xlab("Species") + ylab("AR")
+ggsave("AR.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=AR, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("AR boxplot") +
+  xlab("Species") + ylab("AR")
+ggsave("AR.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR WINGLOADING
+
+```{r BOXPLOT WL}
+ggplot(allrhino58traits, aes(x=Species, y=WL, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("WL boxplot") +
+  xlab("Species") + ylab("WL")
+ggsave("WL.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=WL, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("WL boxplot") +
+  xlab("Species") + ylab("WL")
+ggsave("WL.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+
+#DO BOXPLOT FOR BODY MASS
+
+```{r BOXPLOT FOR BODYMASS}
+ggplot(allrhino58traits, aes(x=Species, y=BM, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("BM boxplot") +
+  xlab("Species") + ylab("BM")
+ggsave("BM.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=BM, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("BM boxplot") +
+  xlab("Species") + ylab("BM")
+ggsave("BM.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+##DO BOXPLOT FOR NOSELEAF TRAITS
+
+```{r DO BOXPLOT FOR NLL}
+ggplot(allrhino58traits, aes(x=Species, y=NL.L, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("NLL boxplot") +
+  xlab("Species") + ylab("NLL")
+ggsave("NLL.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("NLLboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=NL.L, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("NLL boxplot") +
+  xlab("Species") + ylab("NLL")
+dev.off()
+ggsave("NLL.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR NLW
+
+```{r BOXPLOT NLW}
+ggplot(allrhino58traits, aes(x=Species, y=NL.W, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("NL.W boxplot") +
+  xlab("Species") + ylab("NL.W")
+ggsave("NL.W.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=NL.W, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("NL.W boxplot") +
+  xlab("Species") + ylab("NL.W")
+ggsave("NL.W.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR LH
+
+```{r BOXPLOT FOR LH}
+ggplot(allrhino58traits, aes(x=Species, y=LH, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("LH boxplot") +
+  xlab("Species") + ylab("LH")
+ggsave("LH.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=LH, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("LH boxplot") +
+  xlab("Species") + ylab("LH")
+ggsave("LH.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR LTH
+
+```{r BOXPLOT FOR LTH}
+ggplot(allrhino58traits, aes(x=Species, y=LTH, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("LTH boxplot") +
+  xlab("Species") + ylab("LTH")
+ggsave("LTH.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=LTH, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("LTH boxplot") +
+  xlab("Species") + ylab("LTH")
+ggsave("LTH.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR NOSELEAF AREA
+
+```{r BOXPLOT FOR NL.A}
+ggplot(allrhino58traits, aes(x=Species, y=NL.A, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("NL.A boxplot") +
+  xlab("Species") + ylab("NL.A")
+ggsave("NLA.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=NL.A, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("NL.A boxplot") +
+  xlab("Species") + ylab("NL.A")
+ggsave("NL.A.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR SELLA HEIGHT
+
+```{r BOXPLOT OF SELLA HEIGHT}
+ggplot(allrhino58traits, aes(x=Species, y=Sh, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("Sh boxplot") +
+  xlab("Species") + ylab("Sh")
+ggsave("Sh.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=Sh, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("Sh boxplot") +
+  xlab("Species") + ylab("Sh")
+ggsave("Sh.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot for sella area
+
+```{r Box[;ot for sella area]}
+ggplot(allrhino58traits, aes(x=Species, y=SA, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("SA boxplot") +
+  xlab("Species") + ylab("SA")
+ggsave("SA.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=SA, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("SA boxplot") +
+  xlab("Species") + ylab("SA")
+ggsave("SA.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR ANGLE
+
+```{r BOXPLOT CPANG}
+ggplot(allrhino58traits, aes(x=Species, y=CP.Ang, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("CP.Ang boxplot") +
+  xlab("Species") + ylab("CP.Ang")
+ggsave("CP.Ang.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+pdf("CPAngleboxplot.pdf")
+ggplot(allrhino58traits, aes(x=sp_id, y=CP.Ang, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("CP.Ang boxplot") +
+  xlab("Species") + ylab("CP.Ang")
+dev.off()
+ggsave("CP.Ang.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#do boxplot for CP.S.ang
+
+```{r boxplot for CP.S.Ang}
+ggplot(allrhino58traits, aes(x=Species, y=CP.S.Ang, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("CP.S.Ang boxplot") +
+  xlab("Species") + ylab("CP.S.Ang")
+ggsave("CP.S.Ang.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=CP.S.Ang, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("CP.S.Ang boxplot") +
+  xlab("Species") + ylab("CP.S.Ang")
+ggsave("CP.S.Ang.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+#DO BOXPLOT FOR S.ANG
+
+```{r BOXPLOT FOR S.ANG}
+ggplot(allrhino58traits, aes(x=Species, y=S.Ang, fill=Species)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_brewer(palette = "Paired") +
+  ggtitle("CP.Ang boxplot") +
+  xlab("Species") + ylab("S.Ang")
+ggsave("S.Ang.boxplot.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+
+
+ggplot(allrhino58traits, aes(x=sp_id, y=S.Ang, fill=sp_id)) +
+  geom_boxplot(color="black", alpha=0.3) +
+  geom_jitter(color="red", size=0.4, alpha=0.9) +
+  theme_classic()+
+  scale_fill_manual(values = mycolors) +
+  ggtitle("S.Ang boxplot") +
+  xlab("Species") + ylab("S.Ang")
+ggsave("S.Ang.boxplot.species.tiff", units="in", width=10, height=6, dpi=300, compression = 'lzw')
+```
+
+##DO PCA FOR ALL 58 CHARACTERS
+result : too much character and it's ugly. no use
+the result is almost similar with previous analysis (use the previous one if it's necessary)
+```{r PCA FOR ALL 58 CHARACTERS}
+#do basic PCA
+all58.pca<-PCA(allrhino58traits[,4:61], scale.unit = TRUE, ncp = 5, graph =TRUE)
+
+```
+
+#do PCA per characters
+#do PCA for external morphology only
+
+
+#uncomment for further help--DEALING WITH GEOM_POINT
+#USE GGPLOT
+#ggplot(df, aes(x=wt, y=mpg)) +
+#geom_point(shape=23, fill="blue", color="darkred", size=3)
+
+OR
+#fviz_pca_ind(res.pca,axes = c(1, 2), 
+#             label="var", col.var = "black", #setas
+ #            geom = "point", pointsize = 2, col.ind=iris$Species, 
+  #           addEllipses = TRUE, ellipse.level = 0.95,
+   #          ellipse.type ="confidence", palette = "aaas") + theme_minimal()+
+    scale_shape_manual(values=c(19,20,21))
+```{r pca for external morphology}
+#basic
+external.pca<-PCA(allrhino58traits[,37:43], scale.unit = TRUE, ncp = 3, graph =TRUE)
+
+#get eigenvalues
+external.eig<-external.pca$eig
+external.eig
+
+#contrib to PC1
+externalcontribPC1<-fviz_contrib(external.pca, choice = "var", axes = 1, top = 7)
+externalcontribPC1
+#contrib to PC2
+externalcontribPC2<-fviz_contrib(external.pca, choice = "var", axes = 2, top = 7)
+externalcontribPC2
+
+#playing here
+ext.var = get_pca_var(external.pca)
+ext.var
+#get loading
+ext.var$coord
+#get conttribution
+ext.var$contrib
+
+
+###############
+#visualization
+###############
+#install libraries for color
+install.packages("ggsci")
+library(ggsci)
+#better visualization
+#Biplot-final-published-convex hull-external character
+external.biplot.final<-fviz_pca_biplot(external.pca, geom.ind = "point",
+                col.ind = allrhino58traits$Species, fill.ind = allrhino58traits$Species,
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ ggpubr::ggpar(external.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, external 7 characters",
+              caption = NULL,
+              xlab = "PC1(62.26%)", ylab = "PC2(24.84%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+ggsave("external.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+#Biplot-final-published-convex hull-external characters_sp_id
+pdf("externalPCA.pdf")
+external_sp_id.biplot.final<-fviz_pca_biplot(external.pca,  geom.ind = "point",
+                col.ind = allrhino58traits$sp_id, 
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(external_sp_id.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, External 7 characters",
+              caption = NULL,
+              xlab = "PC1(62.26%)", ylab = "PC2(24.84%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+dev.off()
+ggsave("external_sp_id.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+```
+
+
+#do PCA for noseleaf characters
+
+```{r PCA noseleaf}
+#basic
+noseleaf.pca<-PCA(allrhino58traits[,4:18], scale.unit = TRUE, ncp = 2, graph =TRUE)
+#get eigenvalues
+noseleaf.eig<-noseleaf.pca$eig
+noseleaf.eig
+
+#contrib to PC1
+noseleafcontribPC1<-fviz_contrib(noseleaf.pca, choice = "var", axes = 1, top = 15)
+noseleafcontribPC1
+#contrib to PC2
+noseleafcontribPC2<-fviz_contrib(noseleaf.pca, choice = "var", axes = 2, top = 15)
+noseleafcontribPC2
+
+#playing here do the stats
+noseleaf.var = get_pca_var(noseleaf.pca)
+noseleaf.var
+#get loading
+noseleaf.var$coord
+#get conttribution
+noseleaf.var$contrib
+
+#install libraries for color
+install.packages("ggsci")
+library(ggsci)
+#better visualization
+#Biplot-final-published-convex hull-external character
+noseleaf.biplot.final<-fviz_pca_biplot(noseleaf.pca, geom.ind = "point",
+                col.ind = allrhino58traits$Species, fill.ind = allrhino58traits$Species,
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(noseleaf.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, noseleaf characters",
+              caption = NULL,
+              xlab = "PC1(47.16%)", ylab = "PC2(36.25%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+ggsave("noseleaf.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+#Biplot-final-published-convex hull-external characters_sp_id
+pdf("noseleafPCA.pdf")
+noseleaf_sp_id.biplot.final<-fviz_pca_biplot(noseleaf.pca,  geom.ind = "point",
+                col.ind = allrhino58traits$sp_id, 
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(noseleaf_sp_id.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, noseleaf characters",
+              caption = NULL,
+              xlab = "PC1(47.16%)", ylab = "PC2(36.25%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+dev.off()
+ggsave("noseleaf_sp_id.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+```
+
+
+#do PCA for sella
+
+```{r pca sella}
+#basic
+sella.pca<-PCA(allrhino58traits[,19:27], scale.unit = TRUE, ncp = 3, graph =TRUE)
+
+#get eigenvalues
+sella.eig<-sella.pca$eig
+sella.eig
+
+#contrib to PC1
+sellacontribPC1<-fviz_contrib(sella.pca, choice = "var", axes = 1, top = 9)
+sellacontribPC1
+#contrib to PC2
+sellacontribPC2<-fviz_contrib(sella.pca, choice = "var", axes = 2, top = 9)
+sellacontribPC2
+
+#playing here do stats
+sella.var = get_pca_var(sella.pca)
+sella.var
+#get loading
+sella.var$coord
+#get conttribution
+sella.var$contrib
+
+###########################################3
+#better visualization
+#Biplot-final-published-convex hull-sella character
+sella.biplot.final<-fviz_pca_biplot(sella.pca, geom.ind = "point",
+                col.ind = allrhino58traits$Species, fill.ind = allrhino58traits$Species,
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(sella.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, sella characters",
+              caption = NULL,
+              xlab = "PC1(65.38%)", ylab = "PC2(16.64%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+ggsave("sella.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+#Biplot-final-published-convex hull-sella characters_sp_id
+pdf("sellaPCA.pdf")
+sella_sp_id.biplot.final<-fviz_pca_biplot(sella.pca,  geom.ind = "point",
+                col.ind = allrhino58traits$sp_id, 
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(sella_sp_id.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, sella characters",
+              caption = NULL,
+              xlab = "PC1(65.38%)", ylab = "PC2(16.64%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+dev.off()
+ggsave("sella_sp_id.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+```
+
+#do pca for wing
+
+```{r pca wing}
+#load data
+wing.aja = read.csv(file = "wing.csv", header = T, sep = ",")
+str(wing.aja)
+head(wing.aja)
+#basic
+wing.pca<-PCA(wing.aja[,4:7], scale.unit = TRUE, ncp = 3, graph =TRUE)
+
+#get eigenvalues
+wing.eig<-wing.pca$eig
+wing.eig
+
+#contrib to PC1
+wingcontribPC1<-fviz_contrib(wing.pca, choice = "var", axes = 1, top = 4)
+wingcontribPC1
+#contrib to PC2
+wingcontribPC2<-fviz_contrib(wing.pca, choice = "var", axes = 2, top = 4)
+wingcontribPC2
+
+#playing here do stats
+wing.var = get_pca_var(wing.pca)
+wing.var
+#get loading
+wing.var$coord
+#get conttribution
+wing.var$contrib
+
+###########################################3
+#better visualization
+#Biplot-final-published-convex hull-wing character
+wing.biplot.final<-fviz_pca_biplot(wing.pca, geom.ind = "point",
+                col.ind = wing.aja$Species, fill.ind = wing.aja$Species,
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(wing.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, wing characters",
+              caption = NULL,
+              xlab = "PC1(46.28%)", ylab = "PC2(30.67%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+ggsave("wing.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+#Biplot-final-published-convex hull-wing characters_sp_id
+pdf("wingPCA.pdf")
+wing_sp_id.biplot.final<-fviz_pca_biplot(wing.pca,  geom.ind = "point",
+                col.ind = wing.aja$sp_id, 
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(wing_sp_id.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, wing characters",
+              caption = NULL,
+              xlab = "PC1(46.28%)", ylab = "PC2(30.67%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+dev.off()
+ggsave("wing_sp_id.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+```
+
+
+#do pca for acoustic
+
+```{r pca for acoustic}
+acoustic.pca<-PCA(allrhino58traits[,56:61], scale.unit = TRUE, ncp = 3, graph =TRUE)
+
+#get eigenvalues
+acoustic.eig<-acoustic.pca$eig
+acoustic.eig
+
+#contrib to PC1
+acousticcontribPC1<-fviz_contrib(acoustic.pca, choice = "var", axes = 1, top = 6)
+acousticcontribPC1
+#contrib to PC2
+acousticcontribPC2<-fviz_contrib(acoustic.pca, choice = "var", axes = 2, top = 6)
+acousticcontribPC2
+
+#playing here do stats
+acoustic.var = get_pca_var(acoustic.pca)
+acoustic.var
+#get loading
+acoustic.var$coord
+#get conttribution
+acoustic.var$contrib
+
+###########################################3
+#better visualization
+#Biplot-final-published-convex hull-acoustic character
+acoustic.biplot.final<-fviz_pca_biplot(acoustic.pca, geom.ind = "point",
+                col.ind = allrhino58traits$Species, fill.ind = allrhino58traits$Species,
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(acoustic.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, acoustic characters",
+              caption = NULL,
+              xlab = "PC1(57.47%)", ylab = "PC2(23.87%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+ggsave("acoustic.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+#Biplot-final-published-convex hull-acoustic characters_sp_id
+pdf("acoustic.pdf")
+acoustic_sp_id.biplot.final<-fviz_pca_biplot(acoustic.pca,  geom.ind = "point",
+                col.ind = allrhino58traits$sp_id, 
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(acoustic_sp_id.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, acoustic characters",
+              caption = NULL,
+              xlab = "PC1(57.47%)", ylab = "PC2(23.87%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+dev.off()
+ggsave("acoustic_sp_id.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+```
+
+#do pca for acoustic again but removed ipi 
+
+```{r pca for acoustic without ipi}
+#load the data
+acoustic = read.csv(file = "acoustic.csv", header = T, sep = ",")
+str(acoustic)
+head(acoustic)
+
+#do pca
+acousticnoIPI.pca<-PCA(acoustic[,4:8], scale.unit = TRUE, ncp = 3, graph =TRUE)
+
+#better visualization
+#Biplot-final-published-convex hull-acoustic character
+acousticnoIPI.biplot.final<-fviz_pca_biplot(acousticnoIPI.pca, geom.ind = "point",
+                col.ind = acoustic$Species, fill.ind = acoustic$Species,
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(acousticnoIPI.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, acoustic characters",
+              caption = NULL,
+              xlab = "PC1(68.84%)", ylab = "PC2(18.84%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+ggsave("acousticnoIPI.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+#Biplot-final-published-convex hull-acoustic characters_sp_id
+acousticnoIPI_sp_id.biplot.final<-fviz_pca_biplot(acousticnoIPI.pca,  geom.ind = "point",
+                col.ind = acoustic$sp_id, 
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(acousticnoIPI_sp_id.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, acoustic characters",
+              caption = NULL,
+               xlab = "PC1(68.84%)", ylab = "PC2(18.84%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+ggsave("acousticnoIPI_sp_id.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+```
+
+###DONE HERE FOR PCA
+
+###NOT DONE YET LOOOOOOLLL TAKICUAH EE
+DO THIS FOR COMBINATION ALL TRAITS (WHEN ALL TRAITS WERE COMBINED AND SCALED PRIOR ANALYSIS
+
+```{r PCA FOR ALL SELECTED}
+########################
+#########################
+#do it again
+#########################
+#########################
+rhinoselected = read.csv(file = "rhinoallSelectedtraitsforHCPC.csv", header = T, sep = ",")
+str(rhinoselected)
+rhinoselected$Id_SpId
+length(unique(rhinoselected$Id_SpId)) #deleted two repeated samples
+rownames(rhinoselected) = rhinoselected$Id_SpId
+
+#try to scale the dataset since it has different unit (g, mm etc)
+rhinoselected.scaled<-as.data.frame(scale(rhinoselected[,4:37]))
+summary(rhinoselected.scaled)
+str(rhinoselected.scaled)
+head(rhinoselected.scaled)
+
+
+#compute PCA with ncp=2
+scaledselected.pca<-PCA(rhinoselected.scaled[,2:34], ncp=2, graph= T)
+
+#get eigenvalues
+scaledselected.eig<-scaledselected.pca$eig
+scaledselected.eig
+
+#contrib to PC1
+scaledselectedcontribPC1<-fviz_contrib(scaledselected.pca, choice = "var", axes = 1, top = 32)
+scaledselectedcontribPC1
+scaledselectedcontribPC2<-fviz_contrib(scaledselected.pca, choice = "var", axes = 2, top = 32)
+scaledselectedcontribPC2
+
+#playing here do stats
+scaledselected.var = get_pca_var(scaledselected.pca)
+scaledselected.var
+#get loading
+scaledselected.var$coord
+#get conttribution
+scaledselected.var$contrib
+
+###########################################3
+#better visualization
+#Biplot-final-published-convex hull-acoustic character
+#WHOCARE ABOUT THIS SHIT)
+#Biplot-final-published-convex hull-acoustic characters_sp_id
+pdf("all characters.pdf")
+scaledselected_sp_id.biplot.final<-fviz_pca_biplot(scaledselected.pca,  geom.ind = "point",
+                col.ind = rhinoselected$sp_id,
+                palette = c("#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#42B54099", "#AD002A99", "#1B191999", "#800000FF", "#FFB547FF", "#ADB17DFF", "#5B8FA8FF", "#725663FF"),
+                addEllipses = TRUE, ellipse.type = "convex", ellipse.level = 0.95, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Species") + theme_classic() + scale_shape_manual(values = c (0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17))
+ggpubr::ggpar(scaledselected_sp_id.biplot.final,
+              title = "Principal Component Analysis",
+              subtitle = "Rhinolophus, all characters",
+              caption = NULL,
+              xlab = "PC1(46.61%)", ylab = "PC2(20.20%)",
+              legend.title = "Species", legend.position = "top",
+              ggtheme = theme_classic()
+              )
+dev.off()
+ggsave("scaledselected_sp_id.biplot.final.tiff", units="in", width=10, height = 7, dpi = 300, compression='lzw')
+```
+
+
+
+##move on to HCPC
+
+```{r DO BASIC HCPC FOR ALL TRAITS}
+#compute PCA with ncp=2
+all58hcpc.pca<-PCA(rhino[,4:61], ncp=2, graph= FALSE)
+#compute hierarchical clustering on principal component
+all58.hcpc<-HCPC(all58hcpc.pca, consol = T, iter.max = 1000, 
+                    nb.clust = -1, min = 12, max = NULL,
+                    metric = "euclidian",
+                    method = "ward",
+                    order = TRUE,
+                    proba = 0.05, #see ?catdes for details
+                    graph = T)
+
+library(factoextra)
+all58hcpc.factoextra<-fviz_dend(all58.hcpc, 
+          cex = 0.5,                     # Label size
+          paletter = "npg",               # Color palette see ?ggpubr::ggpar
+          rect = TRUE, rect_fill = TRUE, # Add rectangle around groups
+          rect_border = "npg",           # Rectangle color
+          labels_track_height = 1     # Augment the room for labels
+          )
+all58hcpc.factoextra
+ggpubr::ggpar(all58hcpc.factoextra,
+              title = "Cluster Dendogram",
+              subtitle = "Rhinolophidae. Morphology and Echolocation traits",
+              caption = NULL,
+              ggtheme = theme_classic()
+              )
+ggsave("all58hcpc.factoextra.tiff", units = "in", width = 18, height = 7, dpi = 300, compression = 'lzw')
+```
+
+buruak. ulang liak
+
+
+do all traits
+
+rhino.154<-read.csv(file="rhinoinseqdataforhcpc.csv", header = TRUE, sep = ",")
+rhino.154
+str(rhino.154$Id)
+summary(rhino.154$Id)
+length(unique(rhino.154$Id))
+rownames(rhino.154)<-rhino.154$idsp
+```{r hcpc2}
+#load data
+rhino58forhcpc = read.csv(file = "rhinoall58traitsforHCPC.csv", header = T, sep = ",")
+str(rhino58forhcpc$Id)
+rhino58forhcpc$Id_SpId
+length(unique(rhino58forhcpc$Id_SpId)) #deleted two repeated samples
+rownames(rhino58forhcpc) = rhino58forhcpc$Id_SpId
+
+rhino58.pca<-PCA(rhino58forhcpc[,4:61], ncp=2, graph= T)
+
+#use basic hclust
+rhino58.dist<-dist(rhino58forhcpc, method = 'euclidian')
+rhino58.hclust_ward<-hclust(rhino58forhcpc.dist, method ="ward")
+
+# Open a pdf file
+pdf("rhino58.hclustplot.pdf") 
+plot(rhino58.hclust_ward)
+dev.off() 
+# 2. Create a plot
+#plot(x = my_data$wt, y = my_data$mpg,
+     #pch = 16, frame = FALSE,
+     #xlab = "wt", ylab = "mpg", col = "#2E9FDF")
+# Close the pdf file
+
+####################
+#scaled it
+####################
+#try to scale the dataset since it has different unit (g, mm etc)
+rhino58forhcpc.scaled<-as.data.frame(scale(rhino58forhcpc[,4:61]))
+summary(rhino58forhcpc.scaled)
+str(rhino58forhcpc.scaled)
+head(rhino58forhcpc.scaled)
+
+#do simple hcpc
+#compute PCA with ncp=2
+scaled58.pca<-PCA(rhino58forhcpc.scaled[,2:58], ncp=2, graph= T)
+
+#use basic hclust
+scaled58.dist<-dist(rhino58forhcpc.scaled, method = 'euclidian')
+scaled58.hclust_ward<-hclust(rhino58forhcpc.dist, method ="ward")
+plot(scaled58.hclust_ward)
+
+#########################
+#########################
+#do it again
+#########################
+#########################
+rhinoselected = read.csv(file = "rhinoallSelectedtraitsforHCPC.csv", header = T, sep = ",")
+str(rhinoselected)
+rhinoselected$Id_SpId
+length(unique(rhinoselected$Id_SpId)) #deleted two repeated samples
+rownames(rhinoselected) = rhinoselected$Id_SpId
+
+#try to scale the dataset since it has different unit (g, mm etc)
+rhinoselected.scaled<-as.data.frame(scale(rhinoselected[,4:37]))
+summary(rhinoselected.scaled)
+str(rhinoselected.scaled)
+head(rhinoselected.scaled)
+
+#do simple hcpc
+#compute PCA with ncp=2
+scaledselected.pca<-PCA(rhinoselected.scaled[,2:34], ncp=5, graph= T)
+
+#use basic hclust
+scaledselected.dist<-dist(rhinoselected.scaled, method = 'euclidian')
+scaledselected.hclust_ward<-hclust(scaledselected.dist, method ="ward")
+plot(scaledselected.hclust_ward)
+
+
+##################
+#use external morpho and acoustic only
+##################
+
+#do simple hcpc
+#compute PCA with ncp=2
+morphocall.pca<-PCA(rhinoselected.scaled[,16:34], ncp=2, graph= T)
+
+#use basic hclust
+morphocall.dist<-dist(rhinoselected.scaled[,16:34], method = 'euclidian')
+morphocall.hclust_ward<-hclust(morphocall.dist, method ="ward")
+plot(morphocall.hclust_ward)
+
+
+```
+
+
+
+##do ward.d2
+
+```{r hclust wardd2}
+#load data
+rhino58forhcpc1 = read.csv(file = "rhinoall58traitsforHCPC.csv", header = T, sep = ",")
+str(rhino58forhcpc1$Id)
+rhino58forhcpc1$Id_SpId
+length(unique(rhino58forhcpc1$Id_SpId)) #deleted two repeated samples
+rownames(rhino58forhcpc1) = rhino58forhcpc1$Id_SpId
+
+rhino58.pca<-PCA(rhino58forhcpc1[,4:61], ncp=2, graph= T)
+
+#use basic hclust
+rhino58.dist1<-dist(rhino58forhcpc1, method = 'euclidian')
+rhino58.hclust_ward.D<-hclust(rhino58forhcpc.dist, method ="ward.D2")
+
+# Open a pdf file
+pdf("rhino58.hclustplotward2.pdf") 
+plot(rhino58.hclust_ward.D)
+dev.off() 
+# 2. Create a plot
+#plot(x = my_data$wt, y = my_data$mpg,
+     #pch = 16, frame = FALSE,
+     #xlab = "wt", ylab = "mpg", col = "#2E9FDF")
+# Close the pdf file
+```
+
+###use scaled all characters
+
+```{r the final and save to pdf---EH WRONG LA PAKAI WARDD2 YANG BATUA}
+#try to scale the dataset since it has different unit (g, mm etc)
+rhino58forhcpc.scaled<-as.data.frame(scale(rhino58forhcpc[,4:61]))
+summary(rhino58forhcpc.scaled)
+str(rhino58forhcpc.scaled)
+head(rhino58forhcpc.scaled)
+
+#do simple hcpc
+#compute PCA with ncp=2
+scaled58.pca<-PCA(rhino58forhcpc.scaled[,2:58], ncp=2, graph= T)
+
+#use basic hclust
+scaled58.dist<-dist(rhino58forhcpc.scaled, method = 'euclidian')
+scaled58.hclust_ward<-hclust(rhino58forhcpc.dist, method ="ward")
+
+scaled58.cut_ward<-cutree(scaled58.hclust_ward, k = 16)
+plot(scaled58.hclust_ward)
+
+library(dendextend)
+scaled58.ward.dend.obj<-as.dendrogram(scaled58.hclust_ward)
+scaled58.ward.col.dend<-color_branches(ward.dend.obj, h = 16)
+pdf("scaled58.ward.col.dend.pdf")
+plot(scaled58.ward.col.dend)
+dev.off()
+
+
+########
+
+########
+
+```
+
+#use hcpc factoextra--BURUAKK, JAN PAKAI, PAKAI YANG HCLUST AJA
+
+```{r hcpc factoextra}
+#do pca again
+scaled58.pca<-PCA(rhino58forhcpc.scaled[,2:58], ncp=2, graph= T)
+
+again.hcpc<-HCPC(scaled58.pca, consol = T, #a boolean (T/F) T= k-means consolidation is performed 
+                    iter.max = 10, #an integer for max no of iterations (repetition of process or utterance)
+                    nb.clust = -1, #0=tree is cut at the level the user click on, -1 automatic (default)
+                    min = 12, max = NULL,
+                    metric = "euclidian", #the metric to build tree see ?agnes
+                    method = "ward", #the method tho build tree see ?agnes
+                    order = TRUE, #T (cluster ordered following theory center coordinate on the first axis)
+                    graph.scale = "inertia", #character string, inertia (a tendency to remain stable/unchanged)is default, or "sqrt-inertia" the square root of the inertia gain
+                    nb.par = 5, #number of edited paragon (perfect example of particular quality)
+                    description = TRUE, #if true, the cluster are characterized by the variables and the dimensions
+                    proba = 0.05, #see ?catdes for details (0.05 is default)
+                    graph = T)
+again.hcpc
+library(factoextra)
+again.hcpc.factoextra<-fviz_dend(again.hcpc, 
+          cex = 0.7,                     # Label size
+          paletter = "npg",               # Color palette see ?ggpubr::ggpar
+          rect = TRUE, rect_fill = TRUE, # Add rectangle around groups
+          rect_border = "npg",           # Rectangle color
+          labels_track_height = 5      # Augment the room for labels
+          )
+again.hcpc.factoextra
+ggpubr::ggpar(again.hcpc.factoextra,
+              title = "Hierarchical Clustering",
+              subtitle = "Rhinolophidae. Morphology and Echolocation traits",
+              caption = NULL,
+              ggtheme = theme_classic()
+              )
+ggsave("again.hcpc.factoextra.tiff", units = "in", width = 25, height = 13, dpi = 300, compression = 'lzw')
+#UGLY DON'T USE THIS
+```
+
+
+
+#FINAL HCPC USING WARD.D2
+
+This function performs a hierarchical cluster analysis using a set of dissimilarities for the n objects being clustered. Initially, each object is assigned to its own cluster and then the algorithm proceeds iteratively, at each stage joining the two most similar clusters, continuing until there is just a single cluster. At each stage distances between clusters are recomputed by the Lance-Williams dissimilarity update formula according to the particular clustering method being used.
+
+A number of different clustering methods are provided. Ward's minimum variance method aims at finding compact, spherical clusters. The complete linkage method finds similar clusters. The single linkage method (which is closely related to the minimal spanning tree) adopts a 'friends of friends' clustering strategy. The other methods can be regarded as aiming for clusters with characteristics somewhere between the single and complete link methods. Note however, that methods "median" and "centroid" are not leading to a monotone distance measure, or equivalently the resulting dendrograms can have so called inversions or reversals which are hard to interpret, but note the trichotomies in Legendre and Legendre (2012).
+
+The one used by option "ward.D" (equivalent to the only Ward option "ward" in R versions <= 3.0.3) DOES NOT IMPLEMENT  Ward's (1963) clustering criterion, whereas option "ward.D2" implements that criterion (Murtagh and Legendre 2014). With the latter, the dissimilarities are squared before cluster updating. Note that agnes(*, method="ward") corresponds to hclust(*, "ward.D2").
+
+
+```{r FINAL HCLUST USING WARDD2}
+#try to scale the dataset since it has different unit (g, mm etc)
+rhino58forhcpc.scaled<-as.data.frame(scale(rhino58forhcpc[,4:61]))
+summary(rhino58forhcpc.scaled)
+str(rhino58forhcpc.scaled)
+head(rhino58forhcpc.scaled)
+
+#do simple hcpc
+#compute PCA with ncp=2
+scaled58.pca<-PCA(rhino58forhcpc.scaled[,2:58], ncp=2, graph= T)
+
+#use basic hclust
+scaled58.dist.wardd2<-dist(rhino58forhcpc.scaled, method = 'euclidian')
+scaled58.hclust_wardd2<-hclust(rhino58forhcpc.dist, method ="ward.D2")
+
+scaled58.cut_wardd2<-cutree(scaled58.hclust_wardd2, k = 16)
+plot(scaled58.hclust_wardd2)
+
+library(dendextend)
+scaled58.wardd2.dend.obj<-as.dendrogram(scaled58.hclust_wardd2)
+scaled58.wardd2.col.dend<-color_branches(scaled58.wardd2.dend.obj, h = 16)
+pdf("scaled58.wardd2.col.dend.pdf")
+plot(scaled58.wardd2.col.dend)
+dev.off()
+
+
+########
+
+########
+```
+
+#Do stats analysis for traits
+
+#t-test
+comparing two mean whether it statistically significant or not
+two variables ==use t-test (student t-test or welch t-test)
+assumptions:
+1. variables are independent
+2. normally distributed: use ggplot or shapiro-wilk test, p>0.05 = normal
+3. homogeneity ---test with F test(variant test)
+
+has more than two variables : use ANOVA
+---comparing mean of three variables
+assumption:
+1. normally distributed : qqplot or residual vs fitted
+2. homogeneity --levene test
+
+#ANOVA
+
+We want to know if there is any significant difference between the average weights of XXXXX in the 3 XXXXX conditions.
+
+The R function aov() can be used to answer to this question. The function summary.aov() is used to summarize the analysis of variance model.
+
+# Compute the analysis of variance
+res.aov <- aov(weight ~ group, data = my_data)
+# Summary of the analysis
+summary(res.aov)
+            
+The output includes the columns F value and Pr(>F) corresponding to the p-value of the test.
+
+
+Interpret the result of one-way ANOVA tests
+As the p-value is less than the significance level 0.05, we can conclude that there are significant differences between the groups highlighted with "*" in the model summary.
+
+Multiple pairwise-comparison between the means of groups
+In one-way ANOVA test, a significant p-value indicates that some of the group means are different, but we don't know which pairs of groups are different.
+
+It's possible to perform multiple pairwise-comparison, to determine if the mean difference between specific pairs of group are statistically significant.
+
+TUKEY TEST
+Tukey multiple pairwise-comparisons
+As the ANOVA test is significant, we can compute Tukey HSD (Tukey Honest Significant Differences, R function: TukeyHSD()) for performing multiple pairwise-comparison between the means of groups.
+
+The function TukeyHD() takes the fitted ANOVA as an argument.
+
+TukeyHSD(res.aov)
+  Tukey multiple comparisons of means
+    
+diff: difference between means of the two groups
+lwr, upr: the lower and the upper end point of the confidence interval at 95% (default)
+p adj: p-value after adjustment for the multiple comparisons.
+It can be seen from the output, that only the difference between trt2 and trt1 is significant with an adjusted p-value of 0.012.
+
+
+THAT'S IT, NOW LET'S INVESTIGATE
+
+
+#AFFINIS
+
+```{r WHAT DIFFER IN AFFINIS}
+#LOAD DATA (SUBSET)
+#affinis
+aff = subset(allrhino58traits, Species=="Rhinolophus_affinis")
+aff
+str(aff)
+sum.aff = summary(aff)
+sum.aff
+
+install.packages("xlsx")
+library(openxlsx)
+#Subset the cryptic
+aff11 = subset(aff, sp_id == "aff11")
+str(aff11)
+affsum = summary(aff11)
+affsum
+#write.xlsx(affsum, file = "affsum.xlsx")
+
+aff34 = subset(aff, sp_id == "aff34")
+str(aff34)
+aff34sum =summary(aff34)
+write.xlsx(aff34sum, file = "affsum34.xlsx")
+
+
+#FA
+#TEST NORMALITY
+shapiro.test(aff11$FA)
+shapiro.test(aff34$FA)
+#p>.05 is normally distributed
+#test homogeneity
+var.test(FA~sp_id, data = aff) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(FA ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(FA ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+#Ears
+#TEST NORMALITY
+shapiro.test(aff11$E) #p>.05 is normally distributed
+shapiro.test(aff34$E)
+#test homogeneity
+var.test(E~sp_id, data = aff) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(E ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(E ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+#TAIL
+#TEST NORMALITY
+shapiro.test(aff11$Tail) #p>.05 is normally distributed
+shapiro.test(aff34$Tail)
+#test homogeneity
+var.test(Tail~sp_id, data = aff) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(Tail ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Tail ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+#FmaxE
+#TEST NORMALITY
+shapiro.test(aff11$FmaxE)#p>.05 is normally distributed
+shapiro.test(aff34$FmaxE)
+#test homogeneity
+var.test(FmaxE~sp_id, data = aff) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(FmaxE ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(FmaxE ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+#BW
+#TEST NORMALITY
+shapiro.test(aff11$BW) #p>.05 is normally distributed
+shapiro.test(aff34$BW)
+#test homogeneity
+var.test(BW~sp_id, data = aff) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(BW ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(BW ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+#B
+#TEST NORMALITY
+shapiro.test(aff11$B) #p>.05 is normally distributed
+shapiro.test(aff34$B)
+#test homogeneity
+var.test(B~sp_id, data = aff) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(B ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(B ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+#NLL
+#TEST NORMALITY
+shapiro.test(aff11$NL.L) #p>.05 is normally distributed
+shapiro.test(aff34$NL.L)
+#test homogeneity
+var.test(NL.L~sp_id, data = aff) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(NL.L ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(NL.L ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+#CP.Ang
+#TEST NORMALITY
+shapiro.test(aff11$CP.Ang) #p>.05 is normally distributed
+shapiro.test(aff34$CP.Ang)
+#test homogeneity
+var.test(CP.Ang~sp_id, data = aff) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(CP.Ang ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.Ang ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+```
+
+######################################################################################################################################################
+#do for other traits in R.affinis
+
+```{r other TRAITS AFFINIS}
+shapiro.test(aff11$Dur)
+shapiro.test(aff34$Dur)
+#p>.05 is norCP.L.SLally distributed
+#test hoCP.L.SLogeneity
+var.test(Dur~sp_id, data = aff) #p>0.05 variance between two paraCP.L.SLeter is hoCP.L.SLodescascity
+
+#do welch t-test
+t.test(Dur ~ sp_id, data = aff, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Dur ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+
+################
+#do welch t-test
+t.test(LTH~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(S.I ~ sp_id, data = aff, var.equal = TRUE, alternative = "two.sided")
+```
+
+
+
+#MACROTIS
+
+```{r WHAT IS DIFFERENCE IN MACROTIS 3A AND 3B}
+#LOAD DATA (SUBSET)
+#MACROTIS
+mac = subset(allrhino58traits, Species=="Rhinolophus_siamensis")
+mac
+str(mac)
+sum.mac = summary(mac)
+sum.mac
+
+#Subset the cryptic
+mac3A = subset(mac, sp_id == "mac3A")
+str(mac3A)
+mac3asum =summary(mac3A)
+write.xlsx(mac3asum, file = "mac3asum.xlsx")
+
+mac3B = subset(mac, sp_id == "mac3B")
+str(mac3B)
+mac3bsum = summary(mac3B)
+write.xlsx(mac3bsum, file = "mac3bsum.xlsx")
+#FA
+#TEST NORMALITY
+shapiro.test(mac3A$FA)
+shapiro.test(mac3B$FA)
+#p>.05 is normally distributed
+#test homogeneity
+var.test(FA~sp_id, data = mac) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(FA ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(FA ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+#Ears
+#TEST NORMALITY
+shapiro.test(mac3A$E) #p>.05 is normally distributed
+shapiro.test(mac3B$E)
+#test homogeneity
+var.test(E~sp_id, data = mac) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(E ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(E ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+#TAIL
+#TEST NORMALITY
+shapiro.test(mac3A$Tail) #p>.05 is normally distributed
+shapiro.test(mac3B$Tail)
+#test homogeneity
+var.test(Tail~sp_id, data = mac) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(Tail ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Tail ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+#FmaxE
+#TEST NORMALITY
+shapiro.test(mac3A$FmaxE)#p>.05 is normally distributed
+shapiro.test(mac3B$FmaxE)
+#test homogeneity
+var.test(FmaxE~sp_id, data = mac) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(FmaxE ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(FmaxE ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+#BW
+#TEST NORMALITY
+shapiro.test(mac3A$BW) #p>.05 is normally distributed
+shapiro.test(mac3B$BW)
+#test homogeneity
+var.test(BW~sp_id, data = mac) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(BW ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(BW ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+#B
+#TEST NORMALITY
+shapiro.test(mac3A$B) #p>.05 is normally distributed
+shapiro.test(mac3B$B)
+#test homogeneity
+var.test(B~sp_id, data = mac) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(B ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(B ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+#NLL
+#TEST NORMALITY
+shapiro.test(mac3A$NL.L) #p>.05 is normally distributed
+shapiro.test(mac3B$NL.L)
+#test homogeneity
+var.test(NL.L~sp_id, data = mac) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(NL.L ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(NL.L ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+#CP.Ang
+#TEST NORMALITY
+shapiro.test(mac3A$CP.Ang) #p>.05 is normally distributed
+shapiro.test(mac3B$CP.Ang)
+#test homogeneity
+var.test(CP.Ang~sp_id, data = mac) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(CP.Ang ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.Ang ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+```
+
+
+###continue other trait for macrotis
+
+```{r test the rest characters in macrotis}
+###############
+shapiro.test(mac3A$HB)
+shapiro.test(mac3B$HB)
+var.test(HB~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(HB ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(HB ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$TB)
+shapiro.test(mac3B$TB)
+var.test(TB~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(TB ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(TB ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$M)
+shapiro.test(mac3B$M)
+var.test(M~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(M ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(M ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$HF)
+shapiro.test(mac3B$HF)
+var.test(HF ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(HF ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(HF ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$CPSH.LH)
+shapiro.test(mac3B$CPSH.LH)
+var.test(CPSH.LH ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(CPSH.LH ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CPSH.LH ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$LBW.LH)
+shapiro.test(mac3B$LBW.LH)
+var.test(LBW.LH ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(LBW.LH ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(LBW.LH ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$CP.SH)
+shapiro.test(mac3B$CP.SH)
+var.test(CP.SH ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(CP.SH ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.SH ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$Lb.W)
+shapiro.test(mac3B$Lb.W)
+var.test(Lb.W ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(Lb.W ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Lb.W ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$NL.W)
+shapiro.test(mac3B$NL.W)
+var.test(NL.W ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(NL.W ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(NL.W ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$NL.A)
+shapiro.test(mac3B$NL.A)
+var.test(NL.A ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(NL.A ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(NL.A ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$LH)
+shapiro.test(mac3B$LH)
+var.test(LH ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(LH ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(LH ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$Lt.CP)
+shapiro.test(mac3B$Lt.CP)
+var.test(Lt.CP ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(Lt.CP ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Lt.CP ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$LTH)
+shapiro.test(mac3B$LTH)
+var.test(LTH ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(LTH ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(LTH ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$LTH.LH)
+shapiro.test(mac3B$LTH.LH)
+var.test(LTH.LH ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(LTH.LH ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(LTH.LH ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$S.Ang)
+shapiro.test(mac3B$S.Ang)
+var.test(S.Ang ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(S.Ang ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(S.Ang ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$CP.S.Ang)
+shapiro.test(mac3B$CP.S.Ang)
+var.test(CP.S.Ang ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(CP.S.Ang ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.S.Ang ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$CPL.SL)
+shapiro.test(mac3B$CPL.SL)
+var.test(CPL.SL ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(CPL.SL ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CPL.SL ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$CP.I)
+shapiro.test(mac3B$CP.I)
+var.test(CP.I ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(CP.I ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.I ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$S.I)
+shapiro.test(mac3B$S.I)
+var.test(S.I ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(S.I ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(S.I ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$SA)
+shapiro.test(mac3B$SA)
+var.test(SA ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(SA ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(SA ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$Sh)
+shapiro.test(mac3B$Sh)
+var.test(Sh ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(Sh ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Sh ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$AR)
+shapiro.test(mac3B$AR)
+var.test(AR ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(AR ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(AR ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$I)
+shapiro.test(mac3B$I)
+var.test(I ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(I ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(I ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(mac3A$WL)
+shapiro.test(mac3B$WL)
+var.test(WL ~sp_id, data = mac) #p>0.05 variance between two parameter is 
+t.test(WL ~ sp_id, data = mac, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(WL ~ sp_id, data = mac, var.equal = TRUE, alternative = "two.sided")
+
+
+```
+
+#PUSILLUS
+
+```{r WHAT DIFFERENCES IN PUSILLUS S AND PUSILLUS M}
+#SUBSET
+#pusillus
+pus = subset(allrhino58traits, Species == "Rhinolophus_pusillus")
+pus
+str(pus)
+sum.pus = summary(pus)
+sum.pus
+
+#Subset the cryptic
+pusS = subset(pus, sp_id == "pusS")
+str(pusS)
+pusssum = summary(pusS)
+write.xlsx(pusssum, file = "pusssum.xlsx")
+
+pusM = subset(pus, sp_id == "pusM")
+str(pusM)
+pusmsum = summary(pusM)
+write.xlsx(pusmsum, file = "pusmsum.xlsx")
+
+#FA
+#TEST NORMALITY
+shapiro.test(pusM$FA)
+shapiro.test(pusS$FA)
+#p>.05 is normally distributed
+#test homogeneity
+var.test(FA~sp_id, data = pus) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(FA ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(FA ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+#Ears
+#TEST NORMALITY
+shapiro.test(pusM$E) #p>.05 is normally distributed
+shapiro.test(pusS$E)
+#test homogeneity
+var.test(E~sp_id, data = pus) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(E ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(E ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+#TAIL
+#TEST NORMALITY
+shapiro.test(pusM$Tail) #p>.05 is normally distributed
+shapiro.test(pusS$Tail)
+#test homogeneity
+var.test(Tail~sp_id, data = pus) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(Tail ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Tail ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+#FmaxE
+#TEST NORMALITY
+shapiro.test(pusM$FmaxE)#p>.05 is normally distributed
+shapiro.test(pusS$FmaxE)
+#test homogeneity
+var.test(FmaxE~sp_id, data = pus) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(FmaxE ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(FmaxE ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+#BW
+#TEST NORMALITY
+shapiro.test(pusM$BW) #p>.05 is normally distributed
+shapiro.test(pusS$BW)
+#test homogeneity
+var.test(BW~sp_id, data = pus) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(BW ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(BW ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+#B
+#TEST NORMALITY
+shapiro.test(pusM$B) #p>.05 is normally distributed
+shapiro.test(pusS$B)
+#test homogeneity
+var.test(B~sp_id, data = pus) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(B ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(B ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+#NLL
+#TEST NORMALITY
+shapiro.test(pusM$NL.L) #p>.05 is normally distributed
+shapiro.test(pusS$NL.L)
+#test homogeneity
+var.test(NL.L~sp_id, data = pus) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(NL.L ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(NL.L ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+#CP.Ang
+#TEST NORMALITY
+shapiro.test(pusM$CP.Ang) #p>.05 is normally distributed
+shapiro.test(pusS$CP.Ang)
+#test homogeneity
+var.test(CP.Ang~sp_id, data = pus) #p>0.05 variance between two parameter is homodescascity
+
+#do welch t-test
+t.test(CP.Ang ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.Ang ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+```
+
+#continue for the rest of traits in pusillus
+
+```{r cont pusillus}
+###############
+shapiro.test(pusM$HB)
+shapiro.test(pusS$HB)
+var.test(HB~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(HB ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(HB ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$TB)
+shapiro.test(pusS$TB)
+var.test(TB~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(TB ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(TB ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$M)
+shapiro.test(pusS$M)
+var.test(M~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(M ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(M ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$HF)
+shapiro.test(pusS$HF)
+var.test(HF ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(HF ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(HF ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$CPSH.LH)
+shapiro.test(pusS$CPSH.LH)
+var.test(CPSH.LH ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(CPSH.LH ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CPSH.LH ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$LBW.LH)
+shapiro.test(pusS$LBW.LH)
+var.test(LBW.LH ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(LBW.LH ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(LBW.LH ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$CP.SH)
+shapiro.test(pusS$CP.SH)
+var.test(CP.SH ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(CP.SH ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.SH ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$Lb.W)
+shapiro.test(pusS$Lb.W)
+var.test(Lb.W ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(Lb.W ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Lb.W ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$NL.W)
+shapiro.test(pusS$NL.W)
+var.test(NL.W ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(NL.W ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(NL.W ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$NL.A)
+shapiro.test(pusS$NL.A)
+var.test(NL.A ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(NL.A ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(NL.A ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$LH)
+shapiro.test(pusS$LH)
+var.test(LH ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(LH ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(LH ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$Lt.CP)
+shapiro.test(pusS$Lt.CP)
+var.test(Lt.CP ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(Lt.CP ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Lt.CP ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$LTH)
+shapiro.test(pusS$LTH)
+var.test(LTH ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(LTH ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(LTH ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$LTH.LH)
+shapiro.test(pusS$LTH.LH)
+var.test(LTH.LH ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(LTH.LH ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(LTH.LH ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$S.Ang)
+shapiro.test(pusS$S.Ang)
+var.test(S.Ang ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(S.Ang ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(S.Ang ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$CP.S.Ang)
+shapiro.test(pusS$CP.S.Ang)
+var.test(CP.S.Ang ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(CP.S.Ang ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.S.Ang ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$CPL.SL)
+shapiro.test(pusS$CPL.SL)
+var.test(CPL.SL ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(CPL.SL ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CPL.SL ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$CP.I)
+shapiro.test(pusS$CP.I)
+var.test(CP.I ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(CP.I ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(CP.I ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$S.I)
+shapiro.test(pusS$S.I)
+var.test(S.I ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(S.I ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(S.I ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$SA)
+shapiro.test(pusS$SA)
+var.test(SA ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(SA ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(SA ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$Sh)
+shapiro.test(pusS$Sh)
+var.test(Sh ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(Sh ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(Sh ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$AR)
+shapiro.test(pusS$AR)
+var.test(AR ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(AR ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(AR ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$I)
+shapiro.test(pusS$I)
+var.test(I ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(I ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(I ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+###############
+shapiro.test(pusM$WL)
+shapiro.test(pusS$WL)
+var.test(WL ~sp_id, data = pus) #p>0.05 variance between two parameter is 
+t.test(WL ~ sp_id, data = pus, var.equal = FALSE, alternative = "two.sided") #var.equal=true if classical t-test, False=welch
+t.test(WL ~ sp_id, data = pus, var.equal = TRUE, alternative = "two.sided")
+
+```
+
+#SINICUS
+
+
+```{r WHAT DIFFERENT IN SINICUS-this is ANOVA}
+#sinicus
+sin = subset(allrhino58traits, Species == "Rhinolophus_sinicus")
+sin
+str(sin)
+sum.sin = summary(sin)
+sum.sin
+
+#DO SUBSET PER EACH CRYPTIC
+sin2 = subset(sin, sp_id == "sin2")
+sin34 = subset(sin, sp_id == "sin34")
+sin89 = subset(sin, sp_id == "sin89")
+
+
+sin89
+library(openxlsx)
+sin2sum = summary(sin2)
+write.xlsx(sin2sum, file = "sin2sum.xlsx")
+
+sin34sum = summary(sin34)
+write.xlsx(sin34sum, file = "sin34sum.xlsx")
+
+sin89sum = summary(sin89)
+write.xlsx(sin89sum, file = "sin89sum.xlsx")
+
+
+
+library(car)
+
+##############
+#FA
+#############
+#check assumption prior anova
+#homogeneity
+leveneTest(FA ~ sp_id, data = sin)
+
+# Compute the analysis of variance
+fa.aov <- aov(FA ~ sp_id, data = sin)
+# 2. Normality
+plot(fa.aov, 2)
+plot(fa.aov, 1)
+# Summary of the analysis
+summary(fa.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(fa.aov)
+#Extract the residuals
+aov_residuals <- residuals(object = fa.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = aov_residuals)
+
+##############
+#EARS
+#############
+#check assumption prior anova
+#homogeneity
+leveneTest(E ~ sp_id, data = sin)
+
+# Compute the analysis of variance
+E.aov <- aov(E ~ sp_id, data = sin)
+# 2. Normality
+plot(E.aov, 2)
+plot(E.aov, 1)
+# Summary of the analysis
+summary(E.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(E.aov)
+#Extract the residuals
+E.aov_residuals <- residuals(object = E.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = E.aov_residuals)
+
+#do alternative non parametric kruskal wallis
+kruskal.test(FA ~ sp_id, data = sin)
+
+##############
+#Tail
+#############
+#check assumption prior anova
+#homogeneity
+leveneTest(Tail ~ sp_id, data = sin)
+
+# Compute the analysis of variance
+Tail.aov <- aov(Tail ~ sp_id, data = sin)
+# 2. Normality
+plot(Tail.aov, 2)
+plot(Tail.aov, 1)
+# Summary of the analysis
+summary(Tail.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(Tail.aov)
+#Extract the residuals
+Tail.aov_residuals <- residuals(object = Tail.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = Tail.aov_residuals)
+
+#do alternative non parametric kruskal wallis
+#kruskal.test(FA ~ sp_id, data = sin)
+
+##############
+#FmaxE
+#############
+#check assumption prior anova
+#homogeneity
+leveneTest(FmaxE ~ sp_id, data = sin)
+
+# Compute the analysis of variance
+FmaxE.aov <- aov(FmaxE ~ sp_id, data = sin)
+# 2. Normality
+plot(FmaxE.aov, 2) #qqplot
+plot(FmaxE.aov, 1) #residual vs fitted plot
+# Summary of the analysis
+summary(FmaxE.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(FmaxE.aov)
+#Extract the residuals
+FmaxE.aov_residuals <- residuals(object = FmaxE.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = FmaxE.aov_residuals)
+
+#do alternative non parametric kruskal wallis
+kruskal.test(FmaxE~ sp_id, data = sin)
+```
+
+
+#CONTINUE ANOVA FOR SINICUS DOWN HERE
+
+```{r WHAT IS DIFFERENCE IN SINICUS-ANOVA CONTINUE}
+##############
+#BW BANDWIDTH
+#############
+#check assumption prior anova
+#homogeneity
+leveneTest(BW ~ sp_id, data = sin)
+
+# Compute the analysis of variance
+BW.aov <- aov(BW  ~ sp_id, data = sin)
+# 2. Normality
+plot(BW.aov, 2) #qqplot
+plot(BW.aov, 1) #residual vs fitted plot
+# Summary of the analysis
+summary(BW.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(BW.aov)
+#Extract the residuals
+BW.aov_residuals <- residuals(object = BW.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = BW.aov_residuals)
+
+#do alternative non parametric kruskal wallis
+kruskal.test(BW~ sp_id, data = sin)
+
+##############
+#B WING SPAN
+#############
+#check assumption prior anova
+#homogeneity
+leveneTest(B ~ sp_id, data = sin)
+
+# Compute the analysis of variance
+B.aov <- aov(B  ~ sp_id, data = sin)
+# 2. Normality
+plot(B.aov, 2) #qqplot
+plot(B.aov, 1) #residual vs fitted plot
+# Summary of the analysis
+summary(B.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(B.aov)
+#Extract the residuals
+B.aov_residuals <- residuals(object = B.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = B.aov_residuals)
+
+#do alternative non parametric kruskal wallis
+kruskal.test(B~ sp_id, data = sin)
+
+```
+
+#STILL CONTINUE ANOVA FOR SINICUS
+
+```{r WHAT DIFFERENCE IN SINICUS }
+##############
+#NLL NOSELEAF LENGTH
+#############
+#check assumption prior anova
+#homogeneity
+leveneTest(NL.L ~ sp_id, data = sin)
+
+# Compute the analysis of variance
+nll.aov <- aov(NL.L  ~ sp_id, data = sin)
+# 2. Normality
+plot(nll.aov, 2) #qqplot
+plot(nll.aov, 1) #residual vs fitted plot
+# Summary of the analysis
+summary(nll.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(nll.aov)
+#Extract the residuals
+nll.aov_residuals <- residuals(object = nll.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = nll.aov_residuals)
+
+#do alternative non parametric kruskal wallis
+#kruskal.test(B~ sp_id, data = sin)
+
+##############
+#CP.Ang Connecting process angle
+#############
+#check assumption prior anova
+#homogeneity
+leveneTest(CP.Ang ~ sp_id, data = sin)
+
+# Compute the analysis of variance
+cpang.aov <- aov(CP.Ang  ~ sp_id, data = sin)
+# 2. Normality
+plot(cpang.aov, 2) #qqplot
+plot(cpang.aov, 1) #residual vs fitted plot
+# Summary of the analysis
+summary(cpang.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(cpang.aov)
+#Extract the residuals
+cpang.aov_residuals <- residuals(object = cpang.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = cpang.aov_residuals)
+
+#do alternative non parametric kruskal wallis
+#kruskal.test(B~ sp_id, data = sin)
+
+
+```
+
+
+#do the rest test for Sinicus (pusillus)
+
+```{r what else different in sinicus---anova}
+##############
+#homogeneity
+leveneTest(HB ~ sp_id, data = sin)
+# Compute the analysis of variance
+HB.aov <- aov(HB  ~ sp_id, data = sin)
+# 2. Normality
+plot(HB.aov, 2) #qqplot
+plot(HB.aov, 1) #residual vs fitted plot
+# Summary of the analysis
+summary(HB.aov) #result are significant
+#do tukey (posthoc)
+TukeyHSD(HB.aov)
+#Extract the residuals
+HB.aov_residuals <- residuals(object = B.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = HB.aov_residuals)
+#do alternative non parametric kruskal wallis
+kruskal.test(HB~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(TB ~ sp_id, data = sin)
+TB.aov <- aov(TB  ~ sp_id, data = sin)
+plot(TB.aov, 2) #qqplot
+plot(TB.aov, 1) #residual vs fitted plot
+summary(TB.aov) #result are significant
+TukeyHSD(TB.aov)
+TB.aov_residuals <- residuals(object = TB.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = TB.aov_residuals)
+#do alternative non parametric kruskal wallis
+kruskal.test(TB~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(M ~ sp_id, data = sin)
+M.aov <- aov(M  ~ sp_id, data = sin)
+plot(M.aov, 2) #qqplot
+plot(M.aov, 1) #residual vs fitted plot
+summary(M.aov) #result are significant
+TukeyHSD(M.aov)
+M.aov_residuals <- residuals(object = M.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = M.aov_residuals)
+#do alternative non parametric kruskal wallis
+kruskal.test(M ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(HF ~ sp_id, data = sin)
+HF.aov <- aov(HF  ~ sp_id, data = sin)
+plot(HF.aov, 2) #qqplot
+plot(HF.aov, 1) #residual vs fitted plot
+summary(HF.aov) #result are significant
+TukeyHSD(HF.aov)
+HF.aov_residuals <- residuals(object = HF.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = HF.aov_residuals)
+#do alternative non paraHFetric kruskal wallis
+kruskal.test(HF ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(CPSH.LH ~ sp_id, data = sin)
+CPSH.LH.aov <- aov(CPSH.LH  ~ sp_id, data = sin)
+plot(CPSH.LH.aov, 2) #qqplot
+plot(CPSH.LH.aov, 1) #residual vs fitted plot
+summary(CPSH.LH.aov) #result are significant
+TukeyHSD(CPSH.LH.aov)
+CPSH.LH.aov_residuals <- residuals(object = CPSH.LH.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = CPSH.LH.aov_residuals)
+#do alternative non paraCPSH.LHetric kruskal wallis
+kruskal.test(CPSH.LH ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(LBW.LH ~ sp_id, data = sin)
+LBW.LH.aov <- aov(LBW.LH  ~ sp_id, data = sin)
+plot(LBW.LH.aov, 2) #qqplot
+plot(LBW.LH.aov, 1) #residual vs fitted plot
+summary(LBW.LH.aov) #result are significant
+TukeyHSD(LBW.LH.aov)
+LBW.LH.aov_residuals <- residuals(object = LBW.LH.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = LBW.LH.aov_residuals)
+#do alternative non paraLBW.LHetric kruskal wallis
+kruskal.test(LBW.LH ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(CP.SH ~ sp_id, data = sin)
+CP.SH.aov <- aov(CP.SH  ~ sp_id, data = sin)
+plot(CP.SH.aov, 2) #qqplot
+plot(CP.SH.aov, 1) #residual vs fitted plot
+summary(CP.SH.aov) #result are significant
+TukeyHSD(CP.SH.aov)
+CP.SH.aov_residuals <- residuals(object = CP.SH.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = CP.SH.aov_residuals)
+#do alternative non paraCPSHetric kruskal wallis
+kruskal.test(CP.SH ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(Lb.W ~ sp_id, data = sin)
+Lb.W.aov <- aov(Lb.W  ~ sp_id, data = sin)
+plot(Lb.W.aov, 2) #qqplot
+plot(Lb.W.aov, 1) #residual vs fitted plot
+summary(Lb.W.aov) #result are significant
+TukeyHSD(Lb.W.aov)
+Lb.W.aov_residuals <- residuals(object = Lb.W.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = Lb.W.aov_residuals)
+#do alternative non paraLb.Wetric kruskal wallis
+kruskal.test(Lb.W ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(NL.W ~ sp_id, data = sin)
+NL.W.aov <- aov(NL.W  ~ sp_id, data = sin)
+plot(NL.W.aov, 2) #qqplot
+plot(NL.W.aov, 1) #residual vs fitted plot
+summary(NL.W.aov) #result are significant
+TukeyHSD(NL.W.aov)
+NL.W.aov_residuals <- residuals(object = NL.W.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = NL.W.aov_residuals)
+#do alternative non paraNL.Wetric kruskal wallis
+kruskal.test(NL.W ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(NL.A ~ sp_id, data = sin)
+NL.A.aov <- aov(NL.A  ~ sp_id, data = sin)
+plot(NL.A.aov, 2) #qqplot
+plot(NL.A.aov, 1) #residual vs fitted plot
+summary(NL.A.aov) #result are significant
+TukeyHSD(NL.A.aov)
+NL.A.aov_residuals <- residuals(object = NL.A.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = NL.A.aov_residuals)
+#do alternative non paraNL.Aetric kruskal wallis
+kruskal.test(NL.A ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(LH ~ sp_id, data = sin)
+LH.aov <- aov(LH  ~ sp_id, data = sin)
+plot(LH.aov, 2) #qqplot
+plot(LH.aov, 1) #residual vs fitted plot
+summary(LH.aov) #result are significant
+TukeyHSD(LH.aov)
+LH.aov_residuals <- residuals(object = LH.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = LH.aov_residuals)
+#do alternative non paraLHetric kruskal wallis
+kruskal.test(LH ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(Lt.CP ~ sp_id, data = sin)
+Lt.CP.aov <- aov(Lt.CP  ~ sp_id, data = sin)
+plot(Lt.CP.aov, 2) #qqplot
+plot(Lt.CP.aov, 1) #residual vs fitted plot
+summary(Lt.CP.aov) #result are significant
+TukeyHSD(Lt.CP.aov)
+Lt.CP.aov_residuals <- residuals(object = Lt.CP.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = Lt.CP.aov_residuals)
+#do alternative non paraLt.CPetric kruskal wallis
+kruskal.test(Lt.CP ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(LTH ~ sp_id, data = sin)
+LTH.aov <- aov(LTH  ~ sp_id, data = sin)
+plot(LTH.aov, 2) #qqplot
+plot(LTH.aov, 1) #residual vs fitted plot
+summary(LTH.aov) #result are significant
+TukeyHSD(LTH.aov)
+LTH.aov_residuals <- residuals(object = LTH.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = LTH.aov_residuals)
+#do alternative non paraLTHetric kruskal wallis
+kruskal.test(LTH ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(LTH.LH ~ sp_id, data = sin)
+LTH.LH.aov <- aov(LTH.LH  ~ sp_id, data = sin)
+plot(LTH.LH.aov, 2) #qqplot
+plot(LTH.LH.aov, 1) #residual vs fitted plot
+summary(LTH.LH.aov) #result are significant
+TukeyHSD(LTH.LH.aov)
+LTH.LH.aov_residuals <- residuals(object = LTH.LH.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = LTH.LH.aov_residuals)
+#do alternative non paraLTH.LHetric kruskal wallis
+kruskal.test(LTH.LH ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(S.Ang ~ sp_id, data = sin)
+S.Ang.aov <- aov(S.Ang  ~ sp_id, data = sin)
+plot(S.Ang.aov, 2) #qqplot
+plot(S.Ang.aov, 1) #residual vs fitted plot
+summary(S.Ang.aov) #result are significant
+TukeyHSD(S.Ang.aov)
+S.Ang.aov_residuals <- residuals(object = S.Ang.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = S.Ang.aov_residuals)
+#do alternative non paraS.Angetric kruskal wallis
+kruskal.test(S.Ang ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(CP.S.Ang ~ sp_id, data = sin)
+CP.S.Ang.aov <- aov(CP.S.Ang  ~ sp_id, data = sin)
+plot(CP.S.Ang.aov, 2) #qqplot
+plot(CP.S.Ang.aov, 1) #residual vs fitted plot
+summary(CP.S.Ang.aov) #result are significant
+TukeyHSD(CP.S.Ang.aov)
+CP.S.Ang.aov_residuals <- residuals(object = CP.S.Ang.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = CP.S.Ang.aov_residuals)
+#do alternative non paraCP.S.Angetric kruskal wallis
+kruskal.test(CP.S.Ang ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(CPL.SL ~ sp_id, data = sin)
+CPL.SL.aov <- aov(CPL.SL  ~ sp_id, data = sin)
+plot(CPL.SL.aov, 2) #qqplot
+plot(CPL.SL.aov, 1) #residual vs fitted plot
+summary(CPL.SL.aov) #result are significant
+TukeyHSD(CPL.SL.aov)
+CPL.SL.aov_residuals <- residuals(object = CPL.SL.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = CPL.SL.aov_residuals)
+#do alternative non paraCPL.SLetric kruskal wallis
+kruskal.test(CPL.SL ~ sp_id, data = sin)
+
+
+
+##############
+#homogeneity
+leveneTest(CP.I ~ sp_id, data = sin)
+CP.I.aov <- aov(CP.I  ~ sp_id, data = sin)
+plot(CP.I.aov, 2) #qqplot
+plot(CP.I.aov, 1) #residual vs fitted plot
+summary(CP.I.aov) #result are significant
+TukeyHSD(CP.I.aov)
+CP.I.aov_residuals <- residuals(object = CP.I.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = CP.I.aov_residuals)
+#do alternative non paraCP.Letric kruskal wallis
+kruskal.test(CP.I ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(S.I ~ sp_id, data = sin)
+S.I.aov <- aov(S.I  ~ sp_id, data = sin)
+plot(S.I.aov, 2) #qqplot
+plot(S.I.aov, 1) #residual vs fitted plot
+summary(S.I.aov) #result are significant
+TukeyHSD(S.I.aov)
+S.I.aov_residuals <- residuals(object = S.I.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = S.I.aov_residuals)
+#do alternative non paraSLetric kruskal wallis
+kruskal.test(S.I ~ sp_id, data = sin)
+
+########
+#homogeneity
+leveneTest(SA ~ sp_id, data = sin)
+SA.aov <- aov(SA  ~ sp_id, data = sin)
+plot(SA.aov, 2) #qqplot
+plot(SA.aov, 1) #residual vs fitted plot
+summary(SA.aov) #result are significant
+TukeyHSD(SA.aov)
+SA.aov_residuals <- residuals(object = SA.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = SA.aov_residuals)
+#do alternative non paraSAetric kruskal wallis
+kruskal.test(SA ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(Sh ~ sp_id, data = sin)
+Sh.aov <- aov(Sh  ~ sp_id, data = sin)
+plot(Sh.aov, 2) #qqplot
+plot(Sh.aov, 1) #residual vs fitted plot
+summary(Sh.aov) #result are significant
+TukeyHSD(Sh.aov)
+Sh.aov_residuals <- residuals(object = Sh.aov )
+# Run Shapiro-Wilk test
+shapiro.test(x = Sh.aov_residuals)
+#do alternative non paraShetric kruskal wallis
+kruskal.test(Sh ~ sp_id, data = sin)
+
+
+##############
+#homogeneity
+leveneTest(AR ~ sp_id, data = sin)
+AR.aov <- aov(AR  ~ sp_id, data = sin)
+plot(AR.aov, 2) #qqplot
+plot(AR.aov, 1) #residual vs fitted plot
+summary(AR.aov) #result are significant
+TukeyHSD(AR.aov)
+AR.aov_residuals <- residuals(object = AR.aov )
+# Run ARapiro-Wilk test
+shapiro.test(x = AR.aov_residuals)
+#do alternative non paraARetric kruskal wallis
+kruskal.test(AR ~ sp_id, data = sin)
+
+##############
+#homogeneity
+leveneTest(I ~ sp_id, data = sin)
+I.aov <- aov(I  ~ sp_id, data = sin)
+plot(I.aov, 2) #qqplot
+plot(I.aov, 1) #residual vs fitted plot
+summary(I.aov) #result Ie significant
+TukeyHSD(I.aov)
+I.aov_residuals <- residuals(object = I.aov )
+# Run Iapiro-Wilk test
+shapiro.test(x = I.aov_residuals)
+#do alternative non pIaIetric kruskal wallis
+kruskal.test(I ~ sp_id, data = sin)
+
+
+
+
+#homogeneity
+leveneTest(WL ~ sp_id, data = sin)
+WL.aov <- aov(WL  ~ sp_id, data = sin)
+plot(WL.aov, 2) #qqplot
+plot(WL.aov, 1) #residual vs fitted plot
+summary(WL.aov) #result Ie significant
+TukeyHSD(WL.aov)
+WL.aov_residuals <- residuals(object = WL.aov )
+# Run Iapiro-Wilk test
+shapiro.test(x = WL.aov_residuals)
+#do alternative non pIaIetric kruskal wallis
+kruskal.test(WL ~ sp_id, data = sin)
+
+
+
+```
+
