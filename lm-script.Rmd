@@ -1,0 +1,390 @@
+# load libraries
+```{r load problematic packages}
+install.packages("devtools")
+install.packages("ggplot2")
+install.packages("ggpubr")
+install.packages("factoextra")
+install.packages("FactoMineR")
+install.packages("ade4")
+install.packages("vegan")
+install.packages("usethis")
+install.packages("ggsignif")
+install.packages("RColorBrewer")
+library(devtools)
+library(ggplot2)
+library(ggpubr)
+library(factoextra)
+library(FactoMineR)
+library(RColorBrewer)
+```
+
+# set working directory
+```{r set working directory}
+setwd("C:/Users/hp/OneDrive/2020 BACK UP PHD/1. IMPORTANT-CHAPTER2/R Notebook/Data_Analysis_part2/14062021_MorphoAcousticMS1")
+getwd()
+```
+
+
+```{r regression AND LINEAR MODEL}
+
+#look at the relationship between fa and fmaxe
+library(tidyverse)
+library(ggpubr)
+#first, plot data against predictor (FmaxE), we assume body size related to fmaxe
+ggplot(allrhino58traits, aes(x = NL.L , y = FmaxE)) + geom_point() +stat_smooth()
+#correlation coefficien
+cor(allrhino58traits$FmaxE, allrhino58traits$NL.L)
+#do linear model to determine a and b (linear regression, y = a+bx)
+NL.Lmodel = lm(FA ~ B, data = allrhino58traits)
+NL.Lmodel
+
+#add regression line in the scatter plot
+ggplot(allrhino58traits, aes(NL.L, FmaxE)) +
+  geom_point() +
+  stat_smooth(method = lm)
+ggsave("NL.LvsFmax.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+#do model summary
+summary(NL.Lmodel)
+
+#95% confidence interval
+confint(NL.Wmodel)
+
+#model accuracy
+sigma(NL.Wmodel)*100/mean(allrhino58traits$NL.W)
+
+```
+###########################################################################################
+```{r graph lm for publication}
+############FA vs B wingspan#########
+#add to the formula and R to graph
+eq <- function(x,y) {
+
+  model <- lm(FA ~ B, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+
+ggplot(allrhino58traits,aes(x = B, y = FA)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x = 7, y = 100, label = eq(allrhino58traits$B, allrhino58traits$FA), parse = TRUE)
+
+summary(model)
+ggsave("FAvsB-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+
+#### FA~NL.W
+```{r repeated lm for all tested parameter FA-NLw}
+#add to the formula and R to graph
+eq <- function(x,y) {
+
+  model2 <- lm(FA ~ NL.W, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = NL.W, y = FA)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x = 10, y = 70, label = eq(allrhino58traits$NL.W, allrhino58traits$FA), parse = TRUE)
+ggsave("FAvsNL.W-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+
+#### sella vs ear length
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+
+  model <- lm(E ~ S.I, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model3)
+
+ggplot(allrhino58traits,aes(x = S.I, y = E)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x = 10, y = 70, label = eq(allrhino58traits$NL.W, allrhino58traits$FA), parse = TRUE)
+ggsave("EvsSL-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+#### fmaxe vs ear length
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ E, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = E, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x = 10, y = 70, label = eq(allrhino58traits$E, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsE-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+
+
+#### fmaxe vs sella
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ S.I, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = S.I, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x = 30, y = 90, label = eq(allrhino58traits$S.I, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsS.I-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+
+#### fmaxe vs FA
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ FA, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = FA, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x = 30, y = 90, label = eq(allrhino58traits$FA, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsFA-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+
+#### fmaxe vs HB
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ HB, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = HB, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x = 65, y = 100, label = eq(allrhino58traits$HB, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsHB-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+#### fmaxe vs M
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ M, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = M, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x =30, y = 100, label = eq(allrhino58traits$M, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsmass-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+#### fmaxe vs AR
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ AR, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = AR, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x =2.5, y = 100, label = eq(allrhino58traits$AR, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsAR-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+
+#### fmaxe vs WL
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ WL, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = WL, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x =12, y = 100, label = eq(allrhino58traits$WL, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsWL-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+#### fmaxe vs B
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ B, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = B, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x =200, y = 120, label = eq(allrhino58traits$B, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsB-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+#### fmaxe vs lancet width
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ NL.W, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = NL.W, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x =15, y = 100, label = eq(allrhino58traits$NL.W, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsNL.W-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+
+#### fmaxe vs lancet length
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ NL.L, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = NL.L, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x =25, y = 100, label = eq(allrhino58traits$NL.L, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsNL.L-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
+#### fmaxe vs INCW
+```{r }
+#add to the formula and R to graph
+eq <- function(x,y) {
+  model <- lm(FmaxE ~ INCW, data = allrhino58traits)
+  as.character(
+    as.expression(
+      substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2,
+                list(a = format(coef(model)[1], digits = 4),
+                b = format(coef(model)[2], digits = 4),
+                r2 = format(summary(model)$r.squared, digits = 3)))
+    )
+  )
+}
+summary(model)
+
+ggplot(allrhino58traits,aes(x = INCW, y = FmaxE)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_text(x =5, y = 100, label = eq(allrhino58traits$INCW, allrhino58traits$FmaxE), parse = TRUE)
+ggsave("FmaxEvsINCW-2.tiff", units="in", width=6, height=6, dpi=300, compression = 'lzw')
+
+```
